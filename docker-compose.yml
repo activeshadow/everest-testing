@@ -1,0 +1,66 @@
+services:
+  evse-mqtt-server:
+    image: eclipse-mosquitto:2.0.18
+    ports:
+      - 1890:1883
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+  ev-mqtt-server:
+    image: eclipse-mosquitto:2.0.18
+    ports:
+      - 1891:1883
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+
+  charger:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: everest
+    image: everest-manager
+    privileged: true
+    depends_on:
+      - evse-mqtt-server
+    environment:
+      - MQTT_SERVER_ADDRESS=evse-mqtt-server
+    volumes:
+      - ./everest:/etc/everest
+      - ./scripts/everest.sh:/usr/local/bin/everest
+    command: "everest evse-slac"
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  vehicle:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: everest
+    image: everest-manager
+    privileged: true
+    depends_on:
+      - ev-mqtt-server
+    environment:
+      - MQTT_SERVER_ADDRESS=ev-mqtt-server
+    volumes:
+      - ./everest:/etc/everest
+      - ./scripts/everest.sh:/usr/local/bin/everest
+    command: "everest ev-slac"
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  tester:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: tester
+    image: everest-tester
+    depends_on:
+      - evse-mqtt-server
+      - ev-mqtt-server
+    volumes:
+      - ./scripts/test-slac.py:/root/test-slac.py
+    entrypoint: "tail -f /dev/null"

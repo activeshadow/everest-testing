@@ -1,0 +1,6 @@
+active_modules:
+  evse_slac:
+    module: EvseSlac
+    config_implementation:
+      main:
+        device: eth0
